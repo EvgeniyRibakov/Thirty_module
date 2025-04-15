@@ -1,9 +1,10 @@
 import os
 from pathlib import Path
+from datetime import timedelta
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = 'your-secret-key'
+SECRET_KEY = 'django-insecure-i#2th-a&s1v%bp(22zv@jgj7#4@83asu2(%+ss4dv6f-=w4$76'
 
 DEBUG = True
 
@@ -17,7 +18,8 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'rest_framework',
-    'django_filters',  # Добавляем django_filters
+    'django_filters',
+    'rest_framework_simplejwt',  # Добавляем для JWT
     'lms',
     'users',
 ]
@@ -73,6 +75,22 @@ AUTH_PASSWORD_VALIDATORS = [
         'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
     },
 ]
+
+# Настройки REST Framework и JWT
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ),
+    'DEFAULT_PERMISSION_CLASSES': (
+        'rest_framework.permissions.IsAuthenticated',  # По умолчанию требуем авторизацию
+    ),
+}
+
+# Настройки времени жизни токена
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
+}
 
 LANGUAGE_CODE = 'en-us'
 

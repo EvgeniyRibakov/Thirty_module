@@ -1,20 +1,17 @@
 from rest_framework import serializers
 from .models import Course, Lesson
+from .validators import validate_youtube_link
 
 
 class LessonSerializer(serializers.ModelSerializer):
+    video_link = serializers.CharField(validators=[validate_youtube_link], required=False, allow_blank=True)
+
     class Meta:
         model = Lesson
-        fields = ['id', 'title', 'description', 'preview', 'video_url']
+        fields = '__all__'
 
 
 class CourseSerializer(serializers.ModelSerializer):
-    lessons_count = serializers.SerializerMethodField()
-    lessons = LessonSerializer(many=True, read_only=True)
-
     class Meta:
         model = Course
-        fields = ['id', 'title', 'preview', 'description', 'lessons_count', 'lessons']
-
-    def get_lessons_count(self, obj):
-        return obj.lesson_set.count()
+        fields = '__all__'

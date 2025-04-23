@@ -27,4 +27,5 @@ class PaymentSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Payment
-        fields = ['id', 'user', 'payment_date', 'course', 'lesson', 'amount', 'payment_method']
+        fields = ['id', 'user', 'payment_date', 'course', 'lesson', 'amount', 'payment_method', 'stripe_session_id',
+                  'stripe_payment_url']

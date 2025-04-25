@@ -8,6 +8,7 @@ from .serializers import CourseSerializer, LessonSerializer
 from .paginators import CoursePagination, LessonPagination
 from users.permissions import IsModerator, IsOwner
 from drf_spectacular.utils import extend_schema, OpenApiParameter
+from .tasks import send_course_update_email  # Импортируем задачу
 
 
 class CourseViewSet(viewsets.ModelViewSet):
@@ -58,14 +59,20 @@ class CourseViewSet(viewsets.ModelViewSet):
         description="Обновляет данные курса по ID. Доступно модераторам и владельцу.",
     )
     def update(self, request, *args, **kwargs):
-        return super().update(request, *args, **kwargs)
+        response = super().update(request, *args, **kwargs)
+        # Вызываем задачу отправки писем
+        send_course_update_email.delay(self.get_object().id)
+        return response
 
     @extend_schema(
         summary="Частичное обновление курса",
         description="Частично обновляет данные курса по ID. Доступно модераторам и владельцу.",
     )
     def partial_update(self, request, *args, **kwargs):
-        return super().partial_update(request, *args, **kwargs)
+        response = super().partial_update(request, *args, **kwargs)
+        # Вызываем задачу отправки писем
+        send_course_update_email.delay(self.get_object().id)
+        return response
 
     @extend_schema(
         summary="Удаление курса",

@@ -11,13 +11,13 @@ class CourseAdmin(admin.ModelAdmin):
 
 @admin.register(Lesson)
 class LessonAdmin(admin.ModelAdmin):
-    list_display = ['title', 'course', 'video_url', 'owner']  # Исправляем video_link на video_url
+    list_display = ['title', 'course', 'video_url', 'owner']
     list_filter = ['course', 'owner']
     search_fields = ['title']
 
 
 @admin.register(Subscription)
 class SubscriptionAdmin(admin.ModelAdmin):
-    list_display = ['user', 'course']  # Убираем created_at, так как его нет в модели
+    list_display = ['user', 'course']
     list_filter = ['course', 'user']
     search_fields = ['user__username', 'course__title']

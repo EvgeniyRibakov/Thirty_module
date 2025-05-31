@@ -8,7 +8,7 @@ class User(AbstractUser):
     city = models.CharField(max_length=100, blank=True, null=True)
     avatar = models.ImageField(upload_to='avatars/', blank=True, null=True)
 
-    def __str__(self):
+    def str(self):
         return self.username
 
 
@@ -27,5 +27,5 @@ class Payment(models.Model):
     stripe_session_id = models.CharField(max_length=255, null=True, blank=True)
     stripe_payment_url = models.URLField(max_length=500, null=True, blank=True)
 
-    def __str__(self):
+    def str(self):
         return f"Payment {self.id} by {self.user.email}"

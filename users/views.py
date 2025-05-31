@@ -104,6 +104,7 @@ class PaymentViewSet(viewsets.ModelViewSet):
     def retrieve(self, request, *args, **kwargs):
         return super().retrieve(request, *args, **kwargs)
 
+
     @extend_schema(
         summary="Обновление платежа",
         description="Обновляет данные платежа по ID.",

@@ -1,38 +1,67 @@
 name: Django CI/CD Pipeline
 
-on: [ push, pull_request ]
+on: [push, pull_request]
 
 jobs:
   test:
     runs-on: ubuntu-latest
 
-    steps:
-      - name: Check out code
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-
-      - name: Cache pip
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-
-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-
-      - name: Run tests
+    # Добавляем сервисы PostgreSQL и Redis
+    services:
+      postgres:
+        image: postgres:latest
         env:
-          SECRET_KEY: ${{ secrets.SECRET_KEY }}
-        run: |
-          python manage.py test
+          POSTGRES_DB: test_db
+          POSTGRES_USER: test_user
+          POSTGRES_PASSWORD: test_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:latest
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+    - name: Check out code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+
+    - name: Cache pip
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Run tests
+      env:
+        SECRET_KEY: ${{ secrets.SECRET_KEY }}
+        DATABASE_URL: postgres://test_user:test_password@localhost:5432/test_db
+        CELERY_BROKER_URL: redis://localhost:6379/0
+        CELERY_RESULT_BACKEND: redis://localhost:6379/0
+      run: |
+        python manage.py test
 
   deploy:
     runs-on: ubuntu-latest
@@ -40,63 +69,65 @@ jobs:
     if: github.ref == 'refs/heads/main'
 
     steps:
-      - name: Check out code
-        uses: actions/checkout@v4
+    - name: Check out code
+      uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
 
-      - name: Generate SECRET_KEY
-        run: |
-          echo "SECRET_KEY=$(python -c 'import secrets; print(secrets.token_urlsafe(50))')" >> $GITHUB_ENV
+    - name: Generate SECRET_KEY
+      run: |
+        echo "SECRET_KEY=$(python -c 'import secrets; print(secrets.token_urlsafe(50))')" >> $GITHUB_ENV
 
-      - name: Set up SSH
-        run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
-          chmod 600 ~/.ssh/id_ed25519
-          ssh-keyscan -H 158.160.173.153 >> ~/.ssh/known_hosts
+    - name: Set up SSH
+      run: |
+        mkdir -p ~/.ssh
+        echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
+        chmod 600 ~/.ssh/id_ed25519
+        ssh-keyscan -H 158.160.173.153 >> ~/.ssh/known_hosts
 
-      - name: Test SSH connection
-        run: |
-          ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_ed25519 test@158.160.173.153 echo "SSH connection successful"
+    - name: Test SSH connection
+      run: |
+        ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_ed25519 test@158.160.173.153 echo "SSH connection successful"
 
-      - name: Copy project files to server
-        run: |
-          rsync -avz --exclude '__pycache__' . test@158.160.173.153:/home/test/django-app
+    - name: Copy project files to server
+      run: |
+        rsync -avz --exclude '__pycache__' . test@158.160.173.153:/home/test/django-app
 
-      - name: Create .env file on server
-        run: |
-          ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_ed25519 test@158.160.173.153 << 'EOF'
-            mkdir -p /home/test/django-app
-            cd /home/test/django-app
-            echo "SECRET_KEY=${{ env.SECRET_KEY }}" > .env
-            echo "DEBUG=False" >> .env
-            echo "ALLOWED_HOSTS=158.160.173.153,localhost" >> .env
-            echo "POSTGRES_DB=drf" >> .env
-            echo "POSTGRES_USER=drf_user" >> .env
-            echo "POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}" >> .env
-            echo "POSTGRES_HOST=db" >> .env
-            echo "POSTGRES_PORT=5432" >> .env
-            echo "REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }}" >> .env
-            echo "STRIPE_API_KEY=${{ secrets.STRIPE_API_KEY }}" >> .env
-            echo "EMAIL_HOST=${{ secrets.EMAIL_HOST }}" >> .env
-            echo "EMAIL_HOST_USER=${{ secrets.EMAIL_HOST_USER }}" >> .env
-            echo "EMAIL_HOST_PASSWORD=${{ secrets.EMAIL_HOST_PASSWORD }}" >> .env
-          EOF
+    - name: Create .env file on server
+      run: |
+        ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_ed25519 test@158.160.173.153 << 'EOF'
+          mkdir -p /home/test/django-app
+          cd /home/test/django-app
+          echo "SECRET_KEY=${{ env.SECRET_KEY }}" > .env
+          echo "DEBUG=False" >> .env
+          echo "ALLOWED_HOSTS=158.160.173.153,localhost" >> .env
+          echo "DB_NAME=newsletter_db" >> .env
+          echo "DB_USER=postgres" >> .env
+          echo "DB_PASSWORD=${{ secrets.DB_PASSWORD }}" >> .env
+          echo "DB_HOST=localhost" >> .env
+          echo "DB_PORT=5432" >> .env
+          echo "EMAIL_HOST=${{ secrets.EMAIL_HOST }}" >> .env
+          echo "EMAIL_PORT=587" >> .env
+          echo "EMAIL_HOST_USER=${{ secrets.EMAIL_HOST_USER }}" >> .env
+          echo "EMAIL_HOST_PASSWORD=${{ secrets.EMAIL_HOST_PASSWORD }}" >> .env
+          echo "STRIPE_SECRET_KEY=${{ secrets.STRIPE_SECRET_KEY }}" >> .env
+          echo "CELERY_BROKER_URL=redis://localhost:6379/0" >> .env
+          echo "CELERY_RESULT_BACKEND=redis://localhost:6379/0" >> .env
+        EOF
 
-      - name: Deploy application
-        run: |
-          ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_ed25519 test@158.160.173.153 << 'EOF'
-            cd /home/test/django-app
-            python -m venv venv
-            source venv/bin/activate
-            pip install --upgrade pip
-            pip install -r requirements.txt
-            python manage.py migrate
-            python manage.py collectstatic --noinput
-            sudo systemctl restart gunicorn
-            sudo systemctl reload nginx
-          EOF
+    - name: Deploy application
+      run: |
+        ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_ed25519 test@158.160.173.153 << 'EOF'
+          cd /home/test/django-app
+          python -m venv venv
+          source venv/bin/activate
+          pip install --upgrade pip
+          pip install -r requirements.txt
+          python manage.py migrate
+          python manage.py collectstatic --noinput
+          sudo systemctl restart gunicorn
+          sudo systemctl reload nginx
+        EOF

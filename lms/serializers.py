@@ -1,26 +1,36 @@
 from rest_framework import serializers
-from .models import Course, Lesson, Subscription
-from .validators import validate_youtube_link
-
-
-class LessonSerializer(serializers.ModelSerializer):
-    video_link = serializers.CharField(validators=[validate_youtube_link], required=False, allow_blank=True)
-    owner = serializers.PrimaryKeyRelatedField(read_only=True)  # Делаем owner только для чтения
-
-    class Meta:
-        model = Lesson
-        fields = '__all__'
+from lms.models import Lesson, Subscription, Course
 
 
 class CourseSerializer(serializers.ModelSerializer):
-    is_subscribed = serializers.SerializerMethodField()
-
     class Meta:
         model = Course
-        fields = ['id', 'title', 'description', 'owner', 'is_subscribed']
+        fields = ['id', 'title', 'description', 'owner']
 
-    def get_is_subscribed(self, obj):
-        user = self.context['request'].user
-        if user.is_authenticated:
-            return Subscription.objects.filter(user=user, course=obj).exists()
-        return False
+
+class LessonSerializer(serializers.ModelSerializer):
+    course = serializers.PrimaryKeyRelatedField(queryset=Course.objects.all())
+
+    class Meta:
+        model = Lesson
+        fields = ['id', 'title', 'description', 'video_link', 'course', 'owner']
+        extra_kwargs = {
+            'owner': {'read_only': True},
+            'course': {'required': True}
+        }
+
+    def update(self, instance, validated_data):
+        validated_data.pop('course', None)
+        return super().update(instance, validated_data)
+
+
+class SubscriptionSerializer(serializers.ModelSerializer):
+    user = serializers.PrimaryKeyRelatedField(read_only=True)
+    course = serializers.PrimaryKeyRelatedField(queryset=Course.objects.all())
+
+    class Meta:
+        model = Subscription
+        fields = ['id', 'user', 'course']
+        extra_kwargs = {
+            'user': {'read_only': True}
+        }

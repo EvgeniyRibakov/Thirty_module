@@ -56,12 +56,12 @@ jobs:
 
     - name: Run tests
       env:
-        SECRET_KEY: ${{ secrets.SECRET_KEY }}
+        DJANGO_SECRET_KEY: ${{ secrets.DJANGO_SECRET_KEY }}
         DATABASE_URL: postgres://test_user:test_password@localhost:5432/test_db
         CELERY_BROKER_URL: redis://localhost:6379/0
         CELERY_RESULT_BACKEND: redis://localhost:6379/0
       run: |
-        python manage.py test
+        poetry run python manage.py test
 
   deploy:
     runs-on: ubuntu-latest

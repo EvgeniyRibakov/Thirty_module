@@ -41,18 +41,22 @@ jobs:
       with:
         python-version: '3.12'
 
-    - name: Cache pip
+    - name: Install Poetry
+      run: |
+        curl -sSL https://install.python-poetry.org | python3 -
+        echo "$HOME/.poetry/bin" >> $GITHUB_PATH
+
+    - name: Cache Poetry dependencies
       uses: actions/cache@v4
       with:
-        path: ~/.cache/pip
-        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+        path: ~/.cache/pypoetry
+        key: ${{ runner.os }}-poetry-${{ hashFiles('**/pyproject.toml') }}
         restore-keys: |
-          ${{ runner.os }}-pip-
+          ${{ runner.os }}-poetry-
 
-    - name: Install dependencies
+    - name: Install dependencies with Poetry
       run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
+        poetry install --no-root
 
     - name: Run tests
       env:
@@ -101,7 +105,7 @@ jobs:
         ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_ed25519 test@158.160.173.153 << 'EOF'
           mkdir -p /home/test/django-app
           cd /home/test/django-app
-          echo "SECRET_KEY=${{ env.SECRET_KEY }}" > .env
+          echo "DJANGO_SECRET_KEY=${{ env.SECRET_KEY }}" > .env
           echo "DEBUG=False" >> .env
           echo "ALLOWED_HOSTS=158.160.173.153,localhost" >> .env
           echo "DB_NAME=newsletter_db" >> .env
@@ -125,7 +129,9 @@ jobs:
           python -m venv venv
           source venv/bin/activate
           pip install --upgrade pip
-          pip install -r requirements.txt
+          curl -sSL https://install.python-poetry.org | python3 -
+          export PATH="$HOME/.local/bin:$PATH"
+          poetry install --no-root
           python manage.py migrate
           python manage.py collectstatic --noinput
           sudo systemctl restart gunicorn

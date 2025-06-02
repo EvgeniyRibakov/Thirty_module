@@ -44,6 +44,7 @@ jobs:
     - name: Install Poetry
       run: |
         curl -sSL https://install.python-poetry.org | python3 -
+        echo "$HOME/.poetry/bin" >> $GITHUB_PATH
 
     - name: Cache Poetry dependencies
       uses: actions/cache@v4
@@ -89,24 +90,28 @@ jobs:
         mkdir -p ~/.ssh
         echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
         chmod 600 ~/.ssh/id_ed25519
-        ssh-keyscan -H 158.160.173.153 >> ~/.ssh/known_hosts
+        ssh-keyscan -H 158.160.182.203 >> ~/.ssh/known_hosts 2>/dev/null || echo "Warning: Failed to fetch host key, proceeding anyway"
+        echo "SSH setup completed. Verifying key permissions..."
+        ls -l ~/.ssh/id_ed25519
+      env:
+        SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
 
     - name: Test SSH connection
       run: |
-        ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_ed25519 test@158.160.173.153 echo "SSH connection successful"
+        ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_ed25519 do31iyuna@158.160.182.203 echo "SSH connection successful"
 
     - name: Copy project files to server
       run: |
-        rsync -avz --exclude '__pycache__' . test@158.160.173.153:/home/test/django-app
+        rsync -avz --exclude '__pycache__' . do31iyuna@158.160.182.203:/home/do31iyuna/django-app
 
     - name: Create .env file on server
       run: |
-        ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_ed25519 test@158.160.173.153 << 'EOF'
-          mkdir -p /home/test/django-app
-          cd /home/test/django-app
+        ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_ed25519 do31iyuna@158.160.182.203 << 'EOF'
+          mkdir -p /home/do31iyuna/django-app
+          cd /home/do31iyuna/django-app
           echo "DJANGO_SECRET_KEY=${{ env.SECRET_KEY }}" > .env
           echo "DEBUG=False" >> .env
-          echo "ALLOWED_HOSTS=158.160.173.153,localhost" >> .env
+          echo "ALLOWED_HOSTS=158.160.182.203,localhost" >> .env
           echo "DB_NAME=newsletter_db" >> .env
           echo "DB_USER=postgres" >> .env
           echo "DB_PASSWORD=${{ secrets.DB_PASSWORD }}" >> .env
@@ -123,12 +128,14 @@ jobs:
 
     - name: Deploy application
       run: |
-        ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_ed25519 test@158.160.173.153 << 'EOF'
-          cd /home/test/django-app
+        ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_ed25519 do31iyuna@158.160.182.203 << 'EOF'
+          cd /home/do31iyuna/django-app
           python -m venv venv
           source venv/bin/activate
           pip install --upgrade pip
-          pip install -r requirements.txt
+          curl -sSL https://install.python-poetry.org | python3 -
+          export PATH="$HOME/.local/bin:$PATH"
+          poetry install --no-root
           python manage.py migrate
           python manage.py collectstatic --noinput
           sudo systemctl restart gunicorn

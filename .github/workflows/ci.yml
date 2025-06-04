@@ -90,10 +90,6 @@ jobs:
       with:
         ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
-    - name: Test SSH connection
-      run: |
-        ssh -o StrictHostKeyChecking=no do31iyuna@158.160.182.203 echo "SSH connection successful"
-
     - name: Copy project files to server
       run: |
         rsync -avz --exclude '__pycache__' . do31iyuna@158.160.182.203:/home/do31iyuna/django-app

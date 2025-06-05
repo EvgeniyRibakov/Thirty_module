@@ -91,10 +91,32 @@ jobs:
 
     - name: Copy project files to server
       run: |
-        echo "Listing files in GitHub Actions runner before rsync:"
-        ls -la
-        echo "SSH_USER: ${{ secrets.SSH_USER }}"
-        echo "SERVER_IP: ${{ secrets.SERVER_IP }}"
-        echo "DEPLOY_DIR: ${{ secrets.DEPLOY_DIR }}"
-        ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no -v ${{ secrets.SSH_USER }}@${{ secrets.SERVER_IP }} "echo SSH connection test successful"
-        rsync -avzr -e "ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no" --exclude '__pycache__' --exclude '.git' --exclude '.gitignore' --exclude '.env.sample' ./ ${{ secrets.SSH_USER }}@${{ secrets.SERVER_IP }}:${{ secrets.DEPLOY_DIR }}
+          echo "Listing files in GitHub Actions runner before rsync:"
+          ls -la
+          echo "SSH_USER: ${{ secrets.SSH_USER }}"
+          echo "SERVER_IP: ${{ secrets.SERVER_IP }}"
+          echo "DEPLOY_DIR: ${{ secrets.DEPLOY_DIR }}"
+          ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no -v ${{ secrets.SSH_USER }}@${{ secrets.SERVER_IP }} "echo SSH connection test successful"
+          rsync -avzr -e "ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no" --exclude '__pycache__' --exclude '.git' --exclude '.gitignore' --exclude '.env.sample' ./ ${{ secrets.SSH_USER }}@${{ secrets.SERVER_IP }}:${{ secrets.DEPLOY_DIR }}
+          ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SERVER_IP }} << 'EOF'
+            echo "Starting SSH script execution"
+            echo "After rsync, listing contents of ${{ secrets.DEPLOY_DIR }}:"
+            ls -la ${{ secrets.DEPLOY_DIR }}
+            ls -la ${{ secrets.DEPLOY_DIR }}/config 2>/dev/null || echo "config directory not found"
+            echo "Checking Docker and Compose versions:"
+            docker --version
+            docker compose version
+            echo "SECRET_KEY=${{ secrets.DJANGO_SECRET_KEY }}" > ${{ secrets.DEPLOY_DIR }}/.env
+            echo "DATABASE_URL=postgres://${{ secrets.DB_USER }}:${{ secrets.DB_PASSWORD }}@db:5432/${{ secrets.DB_NAME }}" >> ${{ secrets.DEPLOY_DIR }}/.env
+            echo "REDIS_URL=redis://redis:6379/${{ secrets.REDIS_DB }}" >> ${{ secrets.DEPLOY_DIR }}/.env
+            echo "DEBUG=False" >> ${{ secrets.DEPLOY_DIR }}/.env
+            cd ${{ secrets.DEPLOY_DIR }}
+            echo "Validating docker-compose.yml:"
+            docker compose config
+            docker compose down
+            docker compose pull
+            docker compose up -d --build
+            echo "Docker containers status:"
+            docker compose ps
+            docker compose logs
+          EOF

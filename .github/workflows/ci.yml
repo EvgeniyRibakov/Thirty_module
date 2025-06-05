@@ -96,4 +96,5 @@ jobs:
         echo "SSH_USER: ${{ secrets.SSH_USER }}"
         echo "SERVER_IP: ${{ secrets.SERVER_IP }}"
         echo "DEPLOY_DIR: ${{ secrets.DEPLOY_DIR }}"
-        ssh -o StrictHostKeyChecking=no -v ${{ secrets.SSH_USER }}@${{ secrets.SERVER_IP }} "echo SSH c
+        ssh -o StrictHostKeyChecking=no -v ${{ secrets.SSH_USER }}@${{ secrets.SERVER_IP }} "echo SSH connection test successful"
+        rsync -avzr -e "ssh -o StrictHostKeyChecking=no" --exclude '__pycache__' --exclude '.git' --exclude '.gitignore' --exclude '.env.sample' ./ ${{ secrets.SSH_USER }}@${{ secrets.SERVER_IP }}:${{ secrets.DEPLOY_DIR }}

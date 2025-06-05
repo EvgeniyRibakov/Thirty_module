@@ -72,31 +72,41 @@ jobs:
     if: github.ref == 'refs/heads/main'
 
     steps:
-    - name: Check out code
-      uses: actions/checkout@v4
+      - name: Check out code
+        uses: actions/checkout@v4
 
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.12'
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
 
-    - name: Generate SECRET_KEY
-      run: |
-        echo "SECRET_KEY=$(python -c 'import secrets; print(secrets.token_urlsafe(50))')" >> $GITHUB_ENV
+      - name: Generate SECRET_KEY
+        run: |
+          echo "SECRET_KEY=$(python -c 'import secrets; print(secrets.token_urlsafe(50))')" >> $GITHUB_ENV
 
-    - name: Set up SSH agent
-      uses: webfactory/ssh-agent@v0.9.0
-      with:
-        ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+      - name: Set up SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
-    - name: Copy project files to server
-      run: |
+      - name: Configure SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.SERVER_IP }} >> ~/.ssh/known_hosts
+
+      - name: Test SSH connection
+        run: |
+          ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no -v ${{ secrets.SSH_USER }}@${{ secrets.SERVER_IP }} "echo SSH connection test successful"
+
+      - name: Copy project files to server
+        run: |
           echo "Listing files in GitHub Actions runner before rsync:"
           ls -la
           echo "SSH_USER: ${{ secrets.SSH_USER }}"
           echo "SERVER_IP: ${{ secrets.SERVER_IP }}"
           echo "DEPLOY_DIR: ${{ secrets.DEPLOY_DIR }}"
-          ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no -v ${{ secrets.SSH_USER }}@${{ secrets.SERVER_IP }} "echo SSH connection test successful"
           rsync -avzr -e "ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no" --exclude '__pycache__' --exclude '.git' --exclude '.gitignore' --exclude '.env.sample' ./ ${{ secrets.SSH_USER }}@${{ secrets.SERVER_IP }}:${{ secrets.DEPLOY_DIR }}
           ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SERVER_IP }} << 'EOF'
             echo "Starting SSH script execution"

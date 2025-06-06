@@ -67,56 +67,23 @@ jobs:
           poetry run python manage.py test
 
   deploy:
+    name: Deploy to server
     runs-on: ubuntu-latest
     needs: test
     if: github.ref == 'refs/heads/main'
 
     steps:
-      - name: Check out code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-
-      - name: Generate SECRET_KEY
-        run: |
-          echo "SECRET_KEY=$(python -c 'import secrets; print(secrets.token_urlsafe(50))')" >> $GITHUB_ENV
-
-      - name: Set up SSH agent
-        uses: webfactory/ssh-agent@v0.9.0
+      - uses: webfactory/ssh-agent@v0.9.0
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
-      - name: Copy project files to server
+      - name: Deploy application
         run: |
-          echo "Listing files in GitHub Actions runner before rsync:"
-          ls -la
-          echo "SSH_USER: ${{ secrets.SSH_USER }}"
-          echo "SERVER_IP: ${{ secrets.SERVER_IP }}"
-          echo "DEPLOY_DIR: ${{ secrets.DEPLOY_DIR }}"
-          ssh -o StrictHostKeyChecking=no -v ${{ secrets.SSH_USER }}@${{ secrets.SERVER_IP }} "echo SSH connection test successful"
-          rsync -avzr -e "ssh -o StrictHostKeyChecking=no" --exclude '__pycache__' --exclude '.git' --exclude '.gitignore' --exclude '.env.sample' ./ ${{ secrets.SSH_USER }}@${{ secrets.SERVER_IP }}:${{ secrets.DEPLOY_DIR }}
-        
-
-        deploy:
-          name: Deploy to server
-          runs-on: ubuntu-latest
-          needs: test
-
-          steps:
-            - uses: actions/checkout@v4
-
-            - uses: webfactory/ssh-agent@v0.9.0
-              with:
-                ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
-
-            - name: Deploy application
-              run: |
-                ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SERVER_IP }} << 'EOF'
-                  cd /home/test/django-app
-                  git pull origin docker
-                  docker compose down
-                  docker compose up -d --build
-                EOF
+          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SERVER_IP }} << 'EOF'
+            cd /home/test/django-app
+            git pull origin docker
+            docker compose down
+            docker compose up -d --build
+          EOF

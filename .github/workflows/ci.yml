@@ -81,29 +81,40 @@ jobs:
 
       - name: Deploy application
         run: |
-          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SERVER_IP }} << 'EOF'
+          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_USER }}@${{ secrets.SERVER_IP}} << 'EOF'
             echo "Starting deployment on server..."
-            # Установка Docker, если отсутствует
-            if ! command -v docker &> /dev/null; then
-              echo "Installing Docker..."
-              sudo apt update
-              sudo apt install -y apt-transport-https ca-certificates curl software-properties-common
-              curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
-              echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-              sudo apt update
-              sudo apt install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
-              sudo systemctl start docker
-              sudo systemctl enable docker
+            # Проверка и добавление пользователя в группу docker
+            if ! groups | grep -q docker; then
+              echo "Adding user to docker group..."
               sudo usermod -aG docker $USER
-              echo "Docker installed. Reconnecting to apply group changes..."
+              echo "Reconnecting to apply group changes..."
               exit
             fi
-            # Повторное подключение для применения группы (опционально, если требуется)
+            # Задержка перед повторным подключением
             sleep 5
             cd /home/test/django-app
+            # Создание .env файла, если он отсутствует
+            if [ ! -f .env ]; then
+              echo "DJANGO_SECRET_KEY=$(openssl rand -base64 32)" > .env
+              echo "DB_NAME=mydb" >> .env
+              echo "DB_USER=postgres" >> .env
+              echo "DB_PASSWORD=password" >> .env
+              echo "DB_HOST=db" >> .env
+              echo "DB_PORT=5432" >> .env
+              echo "REDIS_HOST=redis" >> .env
+              echo "REDIS_PORT=6379" >> .env
+              echo "REDIS_DB=0" >> .env
+              echo "STRIPE_PUBLISHABLE_KEY=your_stripe_publishable_key" >> .env
+              echo "STRIPE_SECRET_KEY=your_stripe_secret_key" >> .env
+              echo "EMAIL_HOST=smtp.your-email-provider.com" >> .env
+              echo "EMAIL_PORT=587" >> .env
+              echo "EMAIL_HOST_USER=your_email@example.com" >> .env
+              echo "EMAIL_HOST_PASSWORD=your_email_password" >> .env
+            fi
             git pull origin docker
             docker compose down
             docker compose up -d --build
             echo "Deployment completed. Checking container status..."
             docker compose ps
           EOF
+          l

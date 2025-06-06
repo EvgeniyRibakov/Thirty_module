@@ -81,7 +81,7 @@ jobs:
 
       - name: Deploy application
         run: |
-          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_USER }}@${{ secrets.SERVER_IP}} << 'EOF'
+          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SERVER_IP}} << 'EOF'
             echo "Starting deployment on server..."
             # Проверка и добавление пользователя в группу docker
             if ! groups | grep -q docker; then
@@ -117,4 +117,3 @@ jobs:
             echo "Deployment completed. Checking container status..."
             docker compose ps
           EOF
-          l
